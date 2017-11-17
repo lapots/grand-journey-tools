@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="UTF-8"/>
+        <title>Welcome to Grand Journey</title>
+        <link rel="stylesheet" href="css/tether.min.css"/>
+        <link rel="stylesheet" href="css/bootstrap.min.css"/>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Pacifico">
+
+        
+        <script src="js/jquery-3.2.1.min.js"></script>
+        <script src="js/popper.min.js"></script>
+        <script src="js/tether.min.js"></script> <!-- don't need it probably -->
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/jsmediatags-79.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/wavesurfer.js/1.4.0/wavesurfer.min.js"></script>
+        <style>
+            /* CORE PLAYER */
+            .controls {
+                position: relative;
+                display: -webkit-box;
+                display: -ms-flexbox;
+                display: flex;
+                z-index: 99;
+                background-color: transparent;
+                width: 500px;
+                margin-top: -42px;
+            }
+            .controls button {
+                background: none;
+                border: 0;
+                cursor: pointer;
+                color: rgba(0,0,0,0.5);
+                margin-left: -55px;
+                outline: none;
+                -webkit-transition: all 150ms ease;
+                transition: all 150ms ease;
+            }
+            .controls button:hover {
+                color: #23272b;
+            }
+            footer {
+                display: -webkit-box;
+                display: -ms-flexbox;
+                display: flex;
+                -webkit-box-orient: vertical;
+                -webkit-box-direction: normal;
+                -ms-flex-direction: column;
+                flex-direction: column;
+            }
+            #music-info {
+                margin-left: 20px; 
+                font-family: 'Pacifico', cursive; 
+                color: rgba(0,0,0,0.5);
+            }
+            #audio-player-core {
+                border: 2px solid;
+                border-radius:0 10px 10px 0;
+                border-color: rgba(0,0,0,0.5);
+                position: absolute;
+                left: 50px;
+                top: 60px;
+            }
+            .waveform-adj {
+                margin-left: 20px
+            }
+            #volume-circle {
+                width: 100px;
+                height: 100px;
+                border: 5px solid rgba(0,0,0,0.5);
+                border-radius: 100%;
+                float: left;
+                margin-left: 10px;
+            }
+            #slider {
+                position: relative;
+                height: 28px;
+                width: 28px;
+                background: rgba(0,0,0,0.5);
+                border-radius: 100%;
+                cursor: pointer;
+                left: 34px;
+                top: -15px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="player">
+            <div id="volume-circle">
+                <div id="slider"></div>
+            </div>
+            <div id="audio-player-core" class="controls">
+                <img id="now-playing-img" alt="generic" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" width="65px" height="65px">
+                <button id="play-pause-button">
+                    <span class="material-icons">play_arrow</span>
+                </button>
+                <div class="w-100">
+                    <span id="music-info"></span>
+                        <div id="waveform" class="waveform-adj"></div>
+                </div>
+            </div>
+        </div>
+        <script>
+            /** AUDIO PLAYER CORE **/
+            var jsmediatags = window.jsmediatags;
+            var gainNode = 0;
+
+            var wavesurfer = WaveSurfer.create({
+                    container: '#waveform',
+                    waveColor: 'rgba(0,0,0,0.5)',
+                    progressColor: 'black',
+                    height: 40,
+                    barWidth: 1,
+                    hideScrollbar: true
+            });
+            wavesurfer.Playlist;
+            var musicUrl = 'file://path/to/audio.mp3';
+            wavesurfer.load(musicUrl);
+            
+            $('#play-pause-button').on('click', function() {
+                wavesurfer.isPlaying() ? wavesurfer.pause() : wavesurfer.play();
+            });
+            
+            wavesurfer.on('play', function() {
+                $('#play-pause-button span').html('pause_circle_outline');
+            });
+            
+            wavesurfer.on('pause', function() {
+                $('#play-pause-button span').html('play_arrow');
+            });
+            
+            wavesurfer.on('ready', function() {       
+                jsmediatags.read(musicUrl, {
+                    onSuccess: function(tag) {
+                        var tags = tag.tags;
+                        document.querySelector("#music-info").innerHTML = tags.artist + " - " + tags.title;
+                        var image = tags.picture;
+                        if (image) {
+                            var base64String = '';
+                            for (var i = 0; i < image.data.length; i++) {
+                                base64String += String.fromCharCode(image.data[i]);
+                            }
+                            var pic = new Image();
+                            pic.onload = function() {};
+                            var picData = "data:" + image.format + ";base64," + window.btoa(base64String);
+                            pic.src = picData;
+                            $("#now-playing-img")[0].src = picData;
+                        }
+                    },
+                    onError: function(error) {
+                        console.log('Failed to process tags');
+                    }
+                });
+                wavesurfer.setVolume(0.2);
+            });
+            
+            /** VOLUME CONTROL **/
+            var $container = $('#volume-circle');
+            var $slider = $('#slider');
+            var sliderW2 = $slider.width() / 2;
+            var sliderH2 = $slider.height() / 2;    
+            var radius = 50;
+            var deg = 0;    
+            var elP = $('#volume-circle').offset();
+            var elPos = { x: elP.left, y: elP.top};
+            var X = 0, Y = 0;
+            var mdown = false;
+            wavesurfer.setVolume(1);
+            $('#volume-circle')
+                .mousedown(function (e) { mdown = true; })
+                .mouseup(function (e) { mdown = true; })
+                .mousemove(function (e) {
+                    if (mdown) {
+                       deg = calculateDegree(e, elPos);
+                       
+                        if (deg >= 180 && deg <= 360) { // 180 = 0, 360 = 1;
+                            wavesurfer.setVolume((deg - 180) / 180); // some bug in audio volume !!
+                        
+                            X = Math.round(radius * Math.sin(deg * Math.PI/180));    
+                            Y = Math.round(radius *  -Math.cos(deg * Math.PI/180));
+                           
+                            $slider.css({ left: X + radius - sliderW2, top: Y + radius - sliderH2 });              
+                            $slider.css({ WebkitTransform: 'rotate(' + deg + 'deg)'});
+                       }
+                    }
+            }); 
+            
+            function calculateDegree(e, elPos) {
+               var mPos = {x: e.clientX - elPos.x, y: e.clientY - elPos.y};
+               var atan = Math.atan2(mPos.x - radius, mPos.y - radius);
+               deg = -atan / (Math.PI / 180) + 180;
+               return deg;
+            }
+        </script>
+    </body>
+</html>
